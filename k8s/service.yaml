@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: sli-services-exporter
+  namespace: monit
+  labels:
+    app: sli-services-exporter
+    cost-center: tech
+    team: infra
+spec:
+  selector:
+    app: sli-services-exporter
+  type: ClusterIP
+  ports:
+  - name: metrics
+    port: 9877
+    targetPort: 9877
+    protocol: TCP

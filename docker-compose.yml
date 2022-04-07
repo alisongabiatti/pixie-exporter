@@ -1,0 +1,17 @@
+version: '2'
+services:
+  sli-services-exporter :
+    build:
+      context: .
+      args:
+        - NEXUS_PASSWORD
+        - NEXUS_USERNAME
+        - PIXIE_API_KEY
+        - PIXIE_CLUSTER_ID
+
+    command: 'python3 -m exporter'
+    ports:
+      - '9877:9877'
+    volumes:
+      - './src:/app'
+    env_file: .env

@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sli-services-exporter
+  namespace: monit
+spec:
+  selector:
+    matchLabels:
+      app: sli-services-exporter
+  template:
+    metadata:
+      labels:
+        app: sli-services-exporter
+        team: infra
+        cost-center: tech
+    spec:
+      containers:
+      - name: sli-services-exporter
+        image: alisongabiatti/sli-services-exporter:v1.0.2
+        env:
+        - name: PIXIE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: sli-services-exporter
+              key: pixie_api_key
+        - name: PIXIE_CLUSTER_ID
+          valueFrom:
+            secretKeyRef:
+              name: sli-services-exporter
+              key: pixie_cluster_id
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        ports:
+        - containerPort: 9877
+          protocol: TCP
+      nodeSelector:
+        pool: foreground

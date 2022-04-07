@@ -1,0 +1,74 @@
+''' HTTP Service Indicators
+This script ouputs a table of the HTTP Metrics
+This will be used to export metrics to Prometheus
+'''
+
+import px
+
+ns_per_ms = 1000 * 1000
+ns_per_s = 1000 * ns_per_ms
+
+# Window size to use on time_ column for bucketing.
+window_ns = px.DurationNanos(10 * ns_per_s)
+
+# Flag to filter out health checks from the data.
+filter_health_checks = True
+
+# Flag to filter out ready checks from the data.
+filter_ready_checks = True
+
+# Flag to filter out requests that come from an unresolvable IP.
+filter_unresolved_inbound = True
+
+df = px.DataFrame(table='http_events', start_time='-5m')
+
+# Add columns for service, namespace info
+df.namespace = df.ctx['namespace']
+df.service = df.ctx['service']
+
+df.latency = df.latency
+df.timestamp = px.bin(df.time_, window_ns)
+
+# Add column for HTTP response status errors.
+df.failure = df.resp_status >= 500
+
+# Removing healthchecks
+filter_out_conds = ((df.req_path != '/healthz' or not filter_health_checks) and (
+    df.req_path != '/readyz' or not filter_ready_checks)) and (
+    df['remote_addr'] != '-' or not filter_unresolved_inbound)
+
+df = df[filter_out_conds]
+
+# Filter only to inbound service traffic (server-side).
+# Don't include traffic initiated by this service to an external location.
+df = df[df.trace_role == 2]
+df = df.groupby(['timestamp', 'service']).agg(
+    latency_quantiles=('latency', px.quantiles),
+    error_rate=('failure', px.mean),
+    throughput_total=('latency', px.count),
+    inbound_bytes_total=('req_body_size', px.sum),
+    outbound_bytes_total=('resp_body_size', px.sum)
+)
+
+# Compute statistics about each edge of the service graph.
+df.latency_p50 = px.DurationNanos(px.floor(px.pluck_float64(df.latency_quantiles, 'p50')))
+df.latency_p90 = px.DurationNanos(px.floor(px.pluck_float64(df.latency_quantiles, 'p90')))
+df.latency_p99 = px.DurationNanos(px.floor(px.pluck_float64(df.latency_quantiles, 'p99')))
+df.request_throughput = df.throughput_total / window_ns
+df.inbound_throughput = df.inbound_bytes_total / window_ns
+df.outbound_throughput = df.outbound_bytes_total / window_ns
+df.error_rate = px.Percent(df.error_rate)
+
+# Group HTTP events by service, counting errors and total HTTP events.
+df = df.groupby(['service']).agg(
+    latency_p50=('latency_p50', px.mean),
+    latency_p90=('latency_p90', px.mean),
+    latency_p99=('latency_p99', px.mean),
+    request_throughput=('request_throughput', px.mean),
+    error_rate=('error_rate', px.mean),
+    inbound_throughput=('inbound_throughput', px.mean),
+    outbound_throughput=('outbound_throughput', px.mean),
+    throughput_total=('throughput_total', px.sum)
+)
+
+px.display(df, "http_table")

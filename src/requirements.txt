@@ -1,0 +1,2 @@
+pxapi==0.4.1
+prometheus-client==0.11.0

@@ -5,7 +5,8 @@ This exporter was created to collect data from Pixie and expose this to Promethe
 
 # Architechture
 
-This script has a python application to export metrics to Prometheus using a PXL script to collect data from Kubernetes services.
+This script has a python application to export golden signal metrics retrieved from Pixie API using a PXL script.
+These metrics are exposed to Prometheus.
 
 
 ![Architechture](docs/images/arch.png "Architechture")
